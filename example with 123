@@ -1,0 +1,127 @@
+import cv2
+import mediapipe as mp
+import math
+import time
+
+# Инициализация MediaPipe
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1)
+
+# Камера
+cap = cv2.VideoCapture(0)
+frame_width = int(cap.get(3))
+frame_height = int(cap.get(4))
+print(f"Frame size: {frame_width}x{frame_height}")
+
+# Центр круга
+center_x = frame_width // 2
+center_y = frame_height // 2
+circle_radius = 180
+message = ""
+countdown_started = False
+timer_start = 0
+timer_duration = 3  # секунды
+
+def are_eyes_open(mesh):
+    left_eye_open = mesh[159][1] - mesh[145][1] > 4
+    right_eye_open = mesh[386][1] - mesh[374][1] > 4
+    return left_eye_open and right_eye_open
+
+while cap.isOpened():
+    success, frame = cap.read()
+    if not success:
+        print("Камера не работает.")
+        break
+
+    frame = cv2.flip(frame, 1)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = face_mesh.process(rgb_frame)
+
+    clean_frame = frame.copy()
+    cv2.circle(frame, (center_x, center_y), circle_radius, (0, 255, 0), 2)
+
+    ready = False
+    if results.multi_face_landmarks:
+        face_landmarks = results.multi_face_landmarks[0]
+        mesh_points = [(int(p.x * frame_width), int(p.y * frame_height)) for p in face_landmarks.landmark]
+
+        # Центр овала лица
+        face_x = (mesh_points[234][0] + mesh_points[454][0]) // 2
+        face_y = (mesh_points[10][1] + mesh_points[152][1]) // 2
+
+        # Размер лица
+        face_width = abs(mesh_points[234][0] - mesh_points[454][0])
+        face_height = abs(mesh_points[10][1] - mesh_points[152][1])
+
+        # Проверка: все ли точки маски внутри круга
+        all_points_inside = all(
+            math.hypot(x - center_x, y - center_y) <= circle_radius for (x, y) in mesh_points
+        )
+
+        if not all_points_inside:
+            if face_width < circle_radius * 1.2 and face_height < circle_radius * 1.2:
+                message = "Move closer"
+            else:
+                message = "Center your face"
+            countdown_started = False
+        else:
+            message = "Perfect! Hold still..."
+            ready = True
+
+        # Нарисовать точки
+        mp.solutions.drawing_utils.draw_landmarks(
+            frame,
+            face_landmarks,
+            mp_face_mesh.FACEMESH_TESSELATION,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp.solutions.drawing_utils.DrawingSpec(color=(0, 255, 0), thickness=1)
+        )
+
+        # Запуск таймера
+        if ready and not countdown_started:
+            countdown_started = True
+            timer_start = time.time()
+
+        # Отсчёт и съёмка
+        if countdown_started:
+            seconds_passed = int(time.time() - timer_start)
+            seconds_left = timer_duration - seconds_passed
+            if seconds_left > 0:
+                cv2.putText(frame, str(seconds_left), (center_x - 20, center_y - 100),
+                            cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 6)
+            else:
+                if are_eyes_open(mesh_points):
+                    # Сохраняем фото
+                    photo = frame.copy()
+                    filename = "captured_face.png"
+                    cv2.imwrite(filename, photo)
+                    print(f"Photo captured: {filename}")
+                    print(f"Image size: {photo.shape[1]}x{photo.shape[0]}")
+                    print(f"Face size: width {face_width}px, height {face_height}px")
+                    # Показываем замороженное фото
+                    cv2.imshow("Reverse9 Photo", photo)
+                    # Сброс отсчёта
+                    countdown_started = False
+                    time.sleep(1)
+        else:
+            timer_start = 0
+
+    else:
+        message = "Face not detected"
+        countdown_started = False
+
+    # Показываем сообщение
+    if message:
+        cv2.putText(frame, message, (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 3)
+
+    # Показываем окно камеры
+    cv2.imshow("Reverse9 Live", frame)
+
+    # Выход по клавишам
+    key = cv2.waitKey(5) & 0xFF
+    if key == 27 or key == ord('q'):
+        print("Выход из программы.")
+        break
+
+cap.release()
+cv2.destroyAllWindows()

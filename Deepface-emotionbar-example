@@ -1,0 +1,60 @@
+from deepface import DeepFace
+import cv2
+import numpy as np
+
+# Открываем камеру
+cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    print("Не удалось открыть камеру.")
+    exit()
+
+font = cv2.FONT_HERSHEY_SIMPLEX
+frame_count = 0
+emotions_result = {}
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Отражаем изображение, как зеркало
+    frame = cv2.flip(frame, 1)
+
+    # Анализируем эмоции каждые 10 кадров
+    if frame_count % 10 == 0:
+        try:
+            result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+            emotions_result = result[0]['emotion']
+        except:
+            emotions_result = {}
+
+    frame_count += 1
+
+    # Рисуем квадрат вокруг лица
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+
+    for (x, y, w, h) in faces:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+    # Отображаем эмоции
+    if emotions_result:
+        x_pos = 30
+        y_pos = 50
+        bar_width = 200
+
+        for emotion, score in emotions_result.items():
+            bar_length = int((score / 100) * bar_width)
+            # ЖИРНЫЙ, КРУПНЫЙ ШРИФТ: font scale = 0.9, thickness = 2
+            cv2.putText(frame, f"{emotion}: {int(score)}%", (x_pos, y_pos), font, 0.9, (0, 255, 0), 2)
+            cv2.rectangle(frame, (x_pos, y_pos + 5), (x_pos + bar_length, y_pos + 20), (0, 255, 0), -1)
+            y_pos += 35
+
+    cv2.imshow('Emotion Detection (Mirror Mode)', frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()

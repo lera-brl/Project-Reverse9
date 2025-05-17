@@ -1,0 +1,25 @@
+1.  if dominant_emotion == "happy" and emotions["happy"] < 90:
+    category = "1. Loss of Authentic Identity"
+2. if dominant_emotion == "disgust":
+    category = "2. Social Comparison"
+
+3. if dominant_emotion == "fear":
+    category = "3. Behavioral Conditioning"
+
+4. if dominant_emotion == "angry":
+    category = "4. Emotional Reactivity"
+
+5. if dominant_emotion == "surprise" and emotions["fear"] >= 5:
+    category = "5. Addictive Engagement Patterns"
+
+6. if dominant_emotion == "sad":
+    category = "6. Emotional Exhaustion"
+
+7. if dominant_emotion == "happy" and emotions["disgust"] >= 5:
+    category = "7. Self-Modification"
+
+8. if dominant_emotion == "neutral":
+    category = "8. Ideological Shaping"
+
+9. if dominant_emotion == "happy" and emotions["happy"] >= 90:
+    category = "9. Emotional Filtering"
